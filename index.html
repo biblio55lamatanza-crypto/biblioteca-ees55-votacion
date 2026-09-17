@@ -399,6 +399,10 @@
         try { localStorage.setItem('emailVotante', this.emailVotante || ''); } catch (e) {}
       },
 
+      tieneEnlaceCompartido() {
+        return !!new URLSearchParams(window.location.search).get('propuesta');
+      },
+
       async setSession(session) {
         this.session = session;
         this.miId = session?.user?.id || '';
@@ -411,7 +415,9 @@
           await supabaseClient.rpc('activar_invitacion_admin');
           const { data } = await supabaseClient.rpc('is_admin');
           this.esAdmin = data === true;
-          if (this.esAdmin) {
+          // Un enlace compartido de una propuesta tiene prioridad, incluso si
+          // quien entra es administradora: la lleva a esa propuesta, no al panel.
+          if (this.esAdmin && !this.tieneEnlaceCompartido()) {
             this.vista = 'admin';
             await this.cargarAdmin();
             return;
@@ -430,7 +436,7 @@
         this.cargandoGoogle = true;
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: window.location.origin + window.location.pathname },
+          options: { redirectTo: window.location.href },
         });
         if (error) {
           this.cargandoGoogle = false;
