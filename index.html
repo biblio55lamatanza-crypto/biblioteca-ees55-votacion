@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>¿Cómo se va a llamar nuestra biblioteca? — EES N°55</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E4EEFB;
+    --card: #FFFFFF;
+    --ink: #1B2A3A;
+    --ink-soft: #5E6B7A;
+    --azul: #1E3A73;
+    --azul-deep: #142850;
+    --azul-light: #E8EEF9;
+    --verde: #2F6B3A;
+    --verde-light: #E7F3E9;
+    --amarillo: #C98A0A;
+    --amarillo-light: #FDF3DA;
+    --rojo: #B3272D;
+    --rojo-light: #F8E3E4;
+    --gray-light: #E7ECF2;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: 'Nunito', system-ui, sans-serif; }
+  .display { font-family: 'Baloo 2', sans-serif; }
+  .card { background: var(--card); border-radius: 20px; box-shadow: 0 2px 10px rgba(20,40,80,0.10); }
+  .chip { border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.3rem; }
+  .btn-fill { background: var(--azul); color: white; font-weight: 800; padding: 0.75rem 1.5rem; border-radius: 999px; transition: transform 0.1s, background 0.15s; }
+  .btn-fill:hover { background: var(--azul-deep); transform: translateY(-1px); }
+  .btn-fill:disabled { background: #C7D0DC; cursor: default; transform: none; }
+  .btn-ghost { border: 2px solid var(--azul); color: var(--azul); font-weight: 800; padding: 0.7rem 1.4rem; border-radius: 999px; }
+  .btn-ghost:disabled { border-color: #C7D0DC; color: #C7D0DC; cursor: default; }
+  .icon-circle { width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+  .nav-pill { border-radius: 999px; padding: 0.55rem 1.2rem; font-weight: 700; color: var(--ink-soft); }
+  .nav-pill.active { background: var(--azul); color: white; }
+  input[type=text], input[type=email], input[type=date], select, textarea {
+    border: 2px solid var(--gray-light); background: white; padding: 0.7rem 1rem;
+    border-radius: 14px; width: 100%; font-family: 'Nunito', sans-serif; font-weight: 600;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); }
+  label { font-size: 0.85rem; color: var(--ink-soft); font-weight: 700; display: block; margin-bottom: 0.4rem; }
+  [x-cloak] { display: none !important; }
+</style>
+</head>
+<body x-data="app()" x-init="init()" class="min-h-screen pb-16">
+
+  <!-- Barra institucional -->
+  <div class="bg-white relative overflow-hidden">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
+      <img src="ESCUDO.jpeg" alt="Escudo EES N°55" width="56" height="56" style="border-radius:999px;flex-shrink:0;object-fit:cover;" onerror="this.style.display='none'">
+      <p class="text-sm leading-tight">
+        <span style="color: var(--ink-soft);" class="font-bold text-xl">E.E.S. N°55</span><br>
+        <span class="font-extrabold text-lg" style="color: var(--azul);">Memoria, Verdad y Justicia</span>
+      </p>
+    </div>
+    <div class="flex h-1.5">
+      <div class="flex-1" style="background: var(--azul);"></div>
+      <div class="flex-1" style="background: var(--verde);"></div>
+      <div class="flex-1" style="background: var(--amarillo);"></div>
+      <div class="flex-1" style="background: var(--rojo);"></div>
+    </div>
+  </div>
+
+  <!-- Encabezado -->
+  <header class="max-w-5xl mx-auto px-6 pt-8 pb-4 text-center">
+    <h1 class="display text-3xl md:text-4xl font-extrabold" style="color: var(--azul);">📚 ¿Cómo se va a llamar nuestra biblioteca?</h1>
+    <p class="text-sm mt-2" style="color: var(--ink-soft);">Elegí entre los nombres propuestos por la comunidad educativa</p>
+  </header>
+
+  <!-- Navegación de administradoras (solo con sesión de admin) -->
+  <nav class="max-w-5xl mx-auto px-6 flex justify-center items-center gap-2 mb-8 flex-wrap" x-show="esAdmin" x-cloak>
+    <button @click="vista = 'votar'; cargarPropuestas()" :class="vista === 'votar' ? 'nav-pill active' : 'nav-pill'">🗳️ Votar</button>
+    <button @click="vista = 'admin'; cargarAdmin()" :class="vista === 'admin' ? 'nav-pill active' : 'nav-pill'">⚙️ Administración</button>
+    <button @click="salir()" class="nav-pill" style="border:2px solid var(--gray-light)">🚪 Salir</button>
+  </nav>
+
+  <!-- Acceso discreto para administradoras -->
+  <div class="text-center mb-6" x-show="!esAdmin" x-cloak>
+    <button x-show="vista === 'votar'" @click="vista = 'login-admin'" class="text-xs font-bold" style="color: var(--ink-soft);">¿Sos administradora? Entrar</button>
+    <button x-show="vista === 'login-admin'" @click="vista = 'votar'; cargarPropuestas()" class="text-xs font-bold" style="color: var(--ink-soft);">← Volver a votar</button>
+  </div>
+
+  <main class="max-w-5xl mx-auto px-6">
+
+    <!-- ============ LOGIN ADMINISTRADORAS ============ -->
+    <section x-show="!cargando && vista === 'login-admin'" x-cloak class="max-w-md mx-auto">
+      <div class="card p-6">
+        <template x-if="!enlaceEnviado">
+          <div>
+            <div class="text-3xl mb-2">⚙️</div>
+            <h3 class="display font-extrabold text-lg mb-1">Entrar como administradora</h3>
+            <p class="text-sm mb-4" style="color: var(--ink-soft);">Ingresá tu mail y te mandamos un enlace para entrar al panel.</p>
+
+            <label>Tu mail</label>
+            <input type="email" placeholder="tu@mail.com" x-model="emailInput" @keyup.enter="enviarEnlace()" class="mb-3">
+            <p x-show="errorLogin" x-text="errorLogin" class="text-xs font-bold mb-3" style="color: var(--rojo);"></p>
+            <button class="btn-fill w-full" @click="enviarEnlace()" :disabled="enviandoLink || !emailInput">
+              <span x-text="enviandoLink ? 'Enviando…' : 'Enviarme un enlace por mail'"></span>
+            </button>
+          </div>
+        </template>
+        <template x-if="enlaceEnviado">
+          <div class="text-center py-4">
+            <div class="text-3xl mb-2">📬</div>
+            <p class="font-extrabold mb-1">¡Revisá tu correo!</p>
+            <p class="text-sm" style="color: var(--ink-soft);">Te mandamos un enlace a <b x-text="emailInput"></b>. Hacé clic ahí para entrar.</p>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ============ VISTA VOTAR ============ -->
+    <section x-show="!cargando && vista === 'votar'" x-cloak>
+      <div class="card p-4 mb-6 max-w-md mx-auto">
+        <template x-if="!mailVerificado">
+          <div>
+            <button @click="entrarConGoogle()" :disabled="cargandoGoogle"
+                    class="w-full flex items-center justify-center gap-2 font-bold"
+                    style="border:2px solid var(--gray-light); background:white; padding:0.7rem 1rem; border-radius:999px;">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.4 5.4 2.6 13.2l7.8 6.1C12.2 13.5 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.5 2.9-2.2 5.4-4.7 7l7.5 5.8C43.9 37.5 46.5 31.6 46.5 24.5z"/><path fill="#FBBC05" d="M10.4 28.3c-.5-1.5-.8-3-.8-4.8s.3-3.3.8-4.8l-7.8-6.1C.9 15.9 0 19.8 0 24s.9 8.1 2.6 11.4l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.5l-7.5-5.8c-2 1.4-4.7 2.3-7.8 2.3-6.4 0-11.8-4-13.6-9.6l-7.8 6.1C6.4 42.6 14.6 48 24 48z"/></svg>
+              <span x-text="cargandoGoogle ? 'Abriendo Google…' : 'Entrar con Google para votar'"></span>
+            </button>
+          </div>
+        </template>
+        <template x-if="mailVerificado">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">✅</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-bold" style="color: var(--ink-soft);">ENTRASTE COMO</p>
+              <p class="font-extrabold truncate" x-text="emailVotante"></p>
+            </div>
+            <button x-show="!esAdmin" class="text-xs font-bold shrink-0" style="color: var(--ink-soft);" @click="salirVotante()">Salir</button>
+          </div>
+        </template>
+        <p class="text-xs mt-2" style="color: var(--ink-soft);">Un voto por cuenta de Google en cada ronda. No hace falta confirmar nada más.</p>
+      </div>
+
+      <div class="card p-4 mb-6 flex items-center gap-3" :style="config.votacion_abierta ? 'background: var(--verde-light)' : 'background: var(--rojo-light)'">
+        <div class="icon-circle" style="background: white;" x-text="config.votacion_abierta ? '✅' : '⏸️'"></div>
+        <div class="flex-1">
+          <p class="font-extrabold" x-text="config.votacion_abierta ? 'La votación está abierta' : 'La votación está cerrada por ahora'"></p>
+          <p class="text-xs" style="color: var(--ink-soft);">
+            <span x-text="config.ronda_actual === 1 ? 'Ronda 1: todos los nombres propuestos' : 'Ronda final: los 3 nombres más votados'"></span>
+            <template x-if="config.ronda_actual === 1 && config.fecha_limite_ronda1"><span x-text="' · hasta ' + config.fecha_limite_ronda1"></span></template>
+            <template x-if="config.ronda_actual === 2 && config.fecha_limite_ronda2"><span x-text="' · hasta ' + config.fecha_limite_ronda2"></span></template>
+          </p>
+        </div>
+      </div>
+
+      <p x-show="errorVoto" x-text="errorVoto" class="text-sm font-bold p-3 rounded-xl mb-4" style="background: var(--rojo-light); color: var(--rojo);"></p>
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <template x-for="p in propuestas" :key="p.propuesta_id">
+          <div class="card p-5">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <span class="chip" style="background: var(--amarillo-light); color: var(--amarillo);">🏆 <span x-text="'#' + p.posicion"></span></span>
+              <span class="chip" style="background: var(--azul-light); color: var(--azul);" x-text="p.votos_total + ' voto' + (p.votos_total === 1 ? '' : 's')"></span>
+            </div>
+            <img x-show="p.imagen_url" :src="p.imagen_url" class="w-full h-40 object-cover rounded-2xl mb-3">
+            <h3 class="display font-extrabold text-xl mb-1" x-text="p.nombre"></h3>
+            <p class="text-xs font-bold mb-2" style="color: var(--ink-soft);" x-show="p.propuesto_por" x-text="'Propuesto por: ' + p.propuesto_por"></p>
+            <div x-show="p.explicacion_pdf_url" class="mb-4">
+              <iframe :src="p.explicacion_pdf_url" class="w-full rounded-2xl mb-1" style="height: 280px; border: 2px solid var(--gray-light);"></iframe>
+              <a :href="p.explicacion_pdf_url" target="_blank" rel="noopener" class="text-xs font-bold" style="color: var(--azul);">Abrir el PDF en una pestaña nueva ↗</a>
+            </div>
+            <button class="btn-fill w-full"
+                    @click="votar(p)"
+                    :disabled="votando === p.propuesta_id || yaVoto() || !config.votacion_abierta || !mailVerificado">
+              <span x-text="misVotosLocal[config.ronda_actual] === p.propuesta_id ? '✓ Votaste este' : (votando === p.propuesta_id ? 'Votando…' : 'Votar por este nombre')"></span>
+            </button>
+          </div>
+        </template>
+      </div>
+
+      <p x-show="propuestas.length === 0" class="text-center text-sm py-10" style="color: var(--ink-soft);">Todavía no hay nombres propuestos para mostrar.</p>
+    </section>
+
+    <!-- ============ VISTA ADMIN ============ -->
+    <section x-show="!cargando && vista === 'admin'" x-cloak>
+      <p class="text-center text-xs font-bold mb-4" style="color: var(--ink-soft);">✅ Conectada como <span x-text="session?.user?.email"></span></p>
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+
+        <!-- Control de votación -->
+        <div class="card p-6">
+          <h3 class="display font-extrabold text-xl mb-4">⚙️ Control de la votación</h3>
+          <p class="text-sm mb-1"><b>Ronda actual:</b> <span x-text="config.ronda_actual === 1 ? '1 (todos los nombres)' : '2 (final, top 3)'"></span></p>
+          <p class="text-sm mb-4"><b>Estado:</b> <span x-text="config.votacion_abierta ? 'Abierta' : 'Cerrada'"></span></p>
+          <button class="btn-fill w-full mb-3" @click="toggleVotacion()" :disabled="cambiandoEstado">
+            <span x-text="config.votacion_abierta ? 'Cerrar votación' : 'Abrir votación'"></span>
+          </button>
+          <button class="btn-ghost w-full mb-5" @click="avanzarRonda2()" :disabled="avanzando || config.ronda_actual === 2">
+            Pasar a ronda 2 (dejar solo el top 3)
+          </button>
+
+          <label>Fecha límite ronda 1 (informativa)</label>
+          <input type="date" x-model="fechaR1" class="mb-3">
+          <label>Fecha límite ronda 2 (informativa)</label>
+          <input type="date" x-model="fechaR2" class="mb-3">
+          <button class="btn-ghost w-full" @click="guardarFechas()">Guardar fechas</button>
+        </div>
+
+        <!-- Cargar propuesta -->
+        <div class="card p-6">
+          <h3 class="display font-extrabold text-xl mb-4" x-text="editandoId ? '✏️ Editar propuesta' : '➕ Cargar nueva propuesta'"></h3>
+          <p x-show="errorPropuesta" x-text="errorPropuesta" class="text-xs font-bold mb-3" style="color: var(--rojo);"></p>
+          <label>Nombre propuesto</label>
+          <input type="text" placeholder="Ej: Biblioteca Julio Cortázar" x-model="formPropuesta.nombre" class="mb-3">
+          <label>¿Quién lo propone?</label>
+          <input type="text" placeholder="Ej: 6to A, Prof. García, Auxiliares" x-model="formPropuesta.propuesto_por" class="mb-3">
+          <label x-text="editandoId && !formPropuesta.pdfArchivo ? 'Explicación en PDF (ya tiene uno cargado; subí otro para reemplazarlo)' : 'Explicación en PDF'"></label>
+          <input type="file" accept="application/pdf" @change="onPdfSeleccionado($event)" class="mb-1">
+          <p class="text-xs mb-3" style="color: var(--ink-soft);">El desarrollo de por qué se propone este nombre, en un PDF (máximo 15 MB). Se muestra para leer directo en la página.</p>
+          <label>Imagen (opcional)</label>
+          <input type="file" accept="image/*" @change="onArchivoSeleccionado($event)" class="mb-4">
+          <div class="flex gap-3">
+            <button x-show="editandoId" class="btn-ghost flex-1" @click="cancelarEdicion()">Cancelar</button>
+            <button class="btn-fill flex-1" @click="guardarPropuesta()" :disabled="guardandoPropuesta">
+              <span x-text="guardandoPropuesta ? 'Guardando…' : (editandoId ? 'Guardar cambios' : 'Cargar propuesta')"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Listado de propuestas -->
+      <div class="card p-6 mb-6">
+        <h3 class="display font-extrabold text-xl mb-4">📋 Propuestas cargadas</h3>
+        <div class="space-y-3">
+          <template x-for="p in propuestas" :key="p.id">
+            <div class="p-4 rounded-2xl flex items-center gap-3" style="background: var(--gray-light);">
+              <img x-show="p.imagen_url" :src="p.imagen_url" class="w-14 h-14 object-cover rounded-xl flex-shrink-0">
+              <div class="flex-1 min-w-0">
+                <p class="font-extrabold" x-text="p.nombre"></p>
+                <p class="text-xs" style="color: var(--ink-soft);" x-text="(p.propuesto_por || 'Sin autoría') + ' · ' + p.votos_total + ' votos' + (p.finalista ? ' · finalista' : '')"></p>
+              </div>
+              <a x-show="p.explicacion_pdf_url" :href="p.explicacion_pdf_url" target="_blank" rel="noopener" class="text-xs font-bold" style="color: var(--verde);">PDF</a>
+              <button class="text-xs font-bold" style="color: var(--azul);" @click="editarPropuesta(p)">Editar</button>
+              <button class="text-xs font-bold" style="color: var(--rojo);" @click="borrarPropuesta(p)">Borrar</button>
+            </div>
+          </template>
+        </div>
+        <p x-show="propuestas.length === 0" class="text-sm py-4" style="color: var(--ink-soft);">Todavía no cargaste ninguna propuesta.</p>
+      </div>
+
+      <!-- Relevamiento de votantes -->
+      <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="display font-extrabold text-xl">📧 Relevamiento de votantes</h3>
+          <div class="flex gap-2">
+            <button class="btn-ghost text-sm" @click="cargarVotantes()" :disabled="cargandoVotantes">
+              <span x-text="cargandoVotantes ? 'Cargando…' : 'Actualizar listado'"></span>
+            </button>
+            <button class="btn-fill text-sm" @click="descargarCSV()" :disabled="votantesListado.length === 0">Descargar CSV</button>
+          </div>
+        </div>
+        <p class="text-sm" style="color: var(--ink-soft);" x-text="votantesListado.length + ' voto(s) registrado(s)'"></p>
+      </div>
+
+      <!-- Administradoras -->
+      <div class="card p-6 mt-6 max-w-lg">
+        <h3 class="display font-extrabold text-xl mb-1">👥 Administradoras</h3>
+        <p class="text-sm mb-4" style="color: var(--ink-soft);">Para agregar a alguien, primero tiene que entrar una vez al sitio con su mail (o quedará pendiente hasta que lo haga).</p>
+
+        <ul class="space-y-2 mb-4">
+          <template x-for="a in administradoras" :key="a.id">
+            <li class="flex items-center gap-3 p-3 rounded-2xl" style="background: var(--gray-light);">
+              <p class="text-sm font-bold flex-1 truncate" x-text="a.email"></p>
+              <span x-show="a.id === miId" class="chip" style="background: var(--azul-light); color: var(--azul);">vos</span>
+              <button x-show="a.id !== miId" class="text-xs font-bold" style="color: var(--rojo);" @click="quitarAdmin(a)">Quitar</button>
+            </li>
+          </template>
+          <template x-for="i in invitacionesAdmin" :key="i.email">
+            <li class="flex items-center gap-3 p-3 rounded-2xl" style="background: var(--amarillo-light);">
+              <p class="text-sm font-bold flex-1 truncate" x-text="i.email"></p>
+              <span class="chip" style="background: white; color: var(--amarillo);">pendiente</span>
+              <button class="text-xs font-bold" style="color: var(--rojo);" @click="cancelarInvitacion(i.email)">Cancelar</button>
+            </li>
+          </template>
+        </ul>
+
+        <label>Agregar administradora por mail</label>
+        <div class="flex gap-2">
+          <input type="email" placeholder="mail@ejemplo.com" x-model="nuevoAdminMail" @keyup.enter="agregarAdmin()">
+          <button class="btn-fill shrink-0" @click="agregarAdmin()" :disabled="agregandoAdmin || !nuevoAdminMail">
+            <span x-text="agregandoAdmin ? '…' : 'Agregar'"></span>
+          </button>
+        </div>
+        <p x-show="adminMsg" x-text="adminMsg" class="text-sm font-bold mt-3" :style="adminMsgError ? 'color:var(--rojo)' : 'color:var(--verde)'"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-xs pb-6" style="color: var(--ink-soft);">
+    <a href="privacidad.html" class="underline">Política de privacidad</a> · <a href="terminos.html" class="underline">Condiciones del servicio</a>
+  </footer>
+
+<script>
+  // Redimensiona y comprime una imagen a JPEG en el navegador antes de subirla.
+  function comprimirImagen(file, maxDim, calidad) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const max = maxDim || 900;
+        if (width > height && width > max) { height = Math.round(height * max / width); width = max; }
+        else if (height > max) { width = Math.round(width * max / height); height = max; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen'))),
+          'image/jpeg',
+          calidad || 0.8
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+      img.src = url;
+    });
+  }
+
+  // COMPLETAR antes de publicar: URL y anon key del proyecto de Supabase
+  // (Project Settings > API en el dashboard de Supabase).
+  const SUPABASE_URL = 'https://hmwrtzralrjwxcwydngs.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhtd3J0enJhbHJqd3hjd3lkbmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2MDE0NDQsImV4cCI6MjEwNTE3NzQ0NH0.pyuTq_JhmEpkh7XOmwQ5WD27_Hqpna2dYPvo3BKgfc4';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function app() {
+    return {
+      vista: 'votar',
+      cargando: true,
+      session: null,
+      esAdmin: false,
+
+      emailInput: '',
+      enlaceEnviado: false,
+      enviandoLink: false,
+      errorLogin: '',
+
+      emailVotante: '',
+      misVotosLocal: {},
+      mailVerificado: false,
+      cargandoGoogle: false,
+
+      propuestas: [],
+      config: { ronda_actual: 1, votacion_abierta: false, fecha_limite_ronda1: null, fecha_limite_ronda2: null },
+      votando: null,
+      errorVoto: '',
+
+      formPropuesta: { nombre: '', propuesto_por: '', archivo: null, pdfArchivo: null },
+      editandoId: null,
+      guardandoPropuesta: false,
+      errorPropuesta: '',
+      cambiandoEstado: false,
+      avanzando: false,
+      fechaR1: '',
+      fechaR2: '',
+      votantesListado: [],
+      cargandoVotantes: false,
+
+      miId: '',
+      administradoras: [],
+      invitacionesAdmin: [],
+      nuevoAdminMail: '',
+      agregandoAdmin: false,
+      adminMsg: '',
+      adminMsgError: false,
+
+      async init() {
+        try { this.emailVotante = localStorage.getItem('emailVotante') || ''; } catch (e) {}
+        try {
+          const raw = localStorage.getItem('misVotos');
+          this.misVotosLocal = raw ? JSON.parse(raw) : {};
+        } catch (e) { this.misVotosLocal = {}; }
+
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          await this.setSession(session);
+          supabaseClient.auth.onAuthStateChange((_event, session) => this.setSession(session));
+        } catch (e) {
+          this.errorLogin = 'No se pudo conectar. Recargá la página en un rato.';
+          this.vista = 'votar';
+          await this.cargarPropuestas();
+        }
+        this.cargando = false;
+      },
+
+      guardarEmailLocal() {
+        try { localStorage.setItem('emailVotante', this.emailVotante || ''); } catch (e) {}
+      },
+
+      async setSession(session) {
+        this.session = session;
+        this.miId = session?.user?.id || '';
+        if (session) {
+          if (session.user.email) {
+            this.emailVotante = session.user.email;
+            this.mailVerificado = true;
+            this.guardarEmailLocal();
+          }
+          await supabaseClient.rpc('activar_invitacion_admin');
+          const { data } = await supabaseClient.rpc('is_admin');
+          this.esAdmin = data === true;
+          if (this.esAdmin) {
+            this.vista = 'admin';
+            await this.cargarAdmin();
+            return;
+          }
+        } else {
+          this.esAdmin = false;
+          this.mailVerificado = false;
+        }
+        this.cargandoGoogle = false;
+        this.vista = 'votar';
+        await this.cargarPropuestas();
+      },
+
+      async entrarConGoogle() {
+        this.errorVoto = '';
+        this.cargandoGoogle = true;
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + window.location.pathname },
+        });
+        if (error) {
+          this.cargandoGoogle = false;
+          this.errorVoto = error.message || 'No se pudo entrar con Google.';
+        }
+      },
+
+      async salirVotante() {
+        await supabaseClient.auth.signOut();
+      },
+
+      async enviarEnlace() {
+        this.errorLogin = '';
+        if (!this.emailInput) return;
+        this.enviandoLink = true;
+        const { error } = await supabaseClient.auth.signInWithOtp({
+          email: this.emailInput,
+          options: { emailRedirectTo: window.location.origin + window.location.pathname },
+        });
+        this.enviandoLink = false;
+        if (error) { this.errorLogin = error.message || 'No se pudo enviar el enlace.'; return; }
+        this.enlaceEnviado = true;
+      },
+
+      async salir() {
+        await supabaseClient.auth.signOut();
+        this.enlaceEnviado = false;
+        this.emailInput = '';
+      },
+
+      // ---------- Vista pública: propuestas, ranking y voto ----------
+      async cargarPropuestas() {
+        const [{ data: config }, { data: ranking }] = await Promise.all([
+          supabaseClient.from('configuracion').select('*').single(),
+          supabaseClient.from('ranking_propuestas').select('*').order('posicion'),
+        ]);
+        if (config) this.config = config;
+        this.propuestas = ranking || [];
+      },
+
+      yaVoto() {
+        return !!this.misVotosLocal[this.config.ronda_actual];
+      },
+
+      async votar(propuesta) {
+        this.errorVoto = '';
+        const email = (this.emailVotante || '').trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          this.errorVoto = 'Escribí un mail válido para poder votar.';
+          return;
+        }
+        this.votando = propuesta.propuesta_id;
+        const { error } = await supabaseClient.rpc('registrar_voto_publico', {
+          p_propuesta_id: propuesta.propuesta_id,
+          p_email: email,
+        });
+        this.votando = null;
+        if (error) {
+          this.errorVoto = error.code === '23505' ? 'Ese mail ya votó en esta ronda.' : (error.message || 'No se pudo registrar el voto.');
+          return;
+        }
+        this.guardarEmailLocal();
+        this.misVotosLocal[this.config.ronda_actual] = propuesta.propuesta_id;
+        try { localStorage.setItem('misVotos', JSON.stringify(this.misVotosLocal)); } catch (e) {}
+        await this.cargarPropuestas();
+      },
+
+      // ---------- Admin ----------
+      async cargarAdmin() {
+        const [{ data: config }, { data: props }] = await Promise.all([
+          supabaseClient.from('configuracion').select('*').single(),
+          supabaseClient.from('propuestas').select('*').order('votos_total', { ascending: false }),
+        ]);
+        await this.cargarAdministradoras();
+        if (config) {
+          this.config = config;
+          this.fechaR1 = config.fecha_limite_ronda1 || '';
+          this.fechaR2 = config.fecha_limite_ronda2 || '';
+        }
+        this.propuestas = props || [];
+      },
+
+      onArchivoSeleccionado(e) {
+        this.formPropuesta.archivo = e.target.files[0] || null;
+      },
+
+      onPdfSeleccionado(e) {
+        const f = e.target.files[0] || null;
+        if (f && f.size > 15 * 1024 * 1024) {
+          this.errorPropuesta = 'El PDF no puede pesar más de 15 MB.';
+          e.target.value = '';
+          return;
+        }
+        this.formPropuesta.pdfArchivo = f;
+      },
+
+      async guardarPropuesta() {
+        this.errorPropuesta = '';
+        if (!this.formPropuesta.nombre) {
+          this.errorPropuesta = 'Completá al menos el nombre propuesto.';
+          return;
+        }
+        if (!this.editandoId && !this.formPropuesta.pdfArchivo) {
+          this.errorPropuesta = 'Subí el PDF con la explicación del nombre.';
+          return;
+        }
+        this.guardandoPropuesta = true;
+        try {
+          const payload = {
+            nombre: this.formPropuesta.nombre,
+            propuesto_por: this.formPropuesta.propuesto_por || null,
+          };
+
+          if (this.formPropuesta.archivo) {
+            const blob = await comprimirImagen(this.formPropuesta.archivo, 900, 0.8);
+            const path = crypto.randomUUID() + '.jpg';
+            const { error: upErr } = await supabaseClient.storage.from('propuestas-imagenes').upload(path, blob, { contentType: 'image/jpeg' });
+            if (upErr) throw upErr;
+            const { data: pub } = supabaseClient.storage.from('propuestas-imagenes').getPublicUrl(path);
+            payload.imagen_url = pub.publicUrl;
+          }
+
+          if (this.formPropuesta.pdfArchivo) {
+            const path = crypto.randomUUID() + '.pdf';
+            const { error: upErr } = await supabaseClient.storage.from('propuestas-pdfs').upload(path, this.formPropuesta.pdfArchivo, { contentType: 'application/pdf' });
+            if (upErr) throw upErr;
+            const { data: pub } = supabaseClient.storage.from('propuestas-pdfs').getPublicUrl(path);
+            payload.explicacion_pdf_url = pub.publicUrl;
+          }
+
+          if (this.editandoId) {
+            const { error } = await supabaseClient.from('propuestas').update(payload).eq('id', this.editandoId);
+            if (error) throw error;
+          } else {
+            const { error } = await supabaseClient.from('propuestas').insert(payload);
+            if (error) throw error;
+          }
+          this.cancelarEdicion();
+          await this.cargarAdmin();
+        } catch (e) {
+          this.errorPropuesta = e.message || 'No se pudo guardar la propuesta.';
+        }
+        this.guardandoPropuesta = false;
+      },
+
+      editarPropuesta(p) {
+        this.editandoId = p.id;
+        this.formPropuesta = { nombre: p.nombre, propuesto_por: p.propuesto_por || '', archivo: null, pdfArchivo: null };
+      },
+
+      cancelarEdicion() {
+        this.editandoId = null;
+        this.formPropuesta = { nombre: '', propuesto_por: '', archivo: null, pdfArchivo: null };
+      },
+
+      async borrarPropuesta(p) {
+        if (!confirm('¿Borrar la propuesta "' + p.nombre + '"? No se puede deshacer.')) return;
+        const { error } = await supabaseClient.from('propuestas').delete().eq('id', p.id);
+        if (!error) await this.cargarAdmin();
+      },
+
+      async toggleVotacion() {
+        this.cambiandoEstado = true;
+        const fn = this.config.votacion_abierta ? 'cerrar_votacion' : 'abrir_votacion';
+        const { error } = await supabaseClient.rpc(fn);
+        this.cambiandoEstado = false;
+        if (!error) await this.cargarAdmin();
+      },
+
+      async avanzarRonda2() {
+        if (!confirm('Esto cierra la ronda 1, deja solo el top 3 y reinicia los votos a cero para la ronda final. ¿Confirmás?')) return;
+        this.avanzando = true;
+        const { error } = await supabaseClient.rpc('avanzar_a_ronda2');
+        this.avanzando = false;
+        if (!error) await this.cargarAdmin();
+        else alert(error.message);
+      },
+
+      async guardarFechas() {
+        const { error } = await supabaseClient.rpc('set_fechas_limite', {
+          p_fecha_r1: this.fechaR1 || null,
+          p_fecha_r2: this.fechaR2 || null,
+        });
+        if (!error) await this.cargarAdmin();
+      },
+
+      async cargarVotantes() {
+        this.cargandoVotantes = true;
+        const { data, error } = await supabaseClient.rpc('listado_votantes');
+        this.cargandoVotantes = false;
+        if (!error) this.votantesListado = data || [];
+      },
+
+      descargarCSV() {
+        const filas = [['email', 'ronda', 'votado_en'], ...this.votantesListado.map((v) => [v.email, v.ronda, v.votado_en])];
+        const csv = filas.map((f) => f.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'votantes.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+      },
+
+      // ---------- Administradoras ----------
+      async cargarAdministradoras() {
+        const [{ data: admins }, { data: invitaciones }] = await Promise.all([
+          supabaseClient.rpc('listar_admins'),
+          supabaseClient.rpc('listar_invitaciones_admin'),
+        ]);
+        this.administradoras = admins || [];
+        this.invitacionesAdmin = invitaciones || [];
+      },
+
+      async agregarAdmin() {
+        const mail = this.nuevoAdminMail.trim();
+        if (!mail) return;
+        this.adminMsg = '';
+        this.adminMsgError = false;
+        this.agregandoAdmin = true;
+        const { data, error } = await supabaseClient.rpc('designar_admin', { p_email: mail });
+        this.agregandoAdmin = false;
+        if (error) {
+          this.adminMsgError = true;
+          this.adminMsg = error.message;
+          return;
+        }
+        this.adminMsg = data;
+        this.nuevoAdminMail = '';
+        await this.cargarAdministradoras();
+      },
+
+      async quitarAdmin(a) {
+        if (!confirm('¿Quitar a ' + a.email + ' como administradora?')) return;
+        this.adminMsg = '';
+        this.adminMsgError = false;
+        const { data, error } = await supabaseClient.rpc('quitar_admin', { p_id: a.id });
+        if (error) { this.adminMsgError = true; this.adminMsg = error.message; return; }
+        this.adminMsg = data;
+        await this.cargarAdministradoras();
+      },
+
+      async cancelarInvitacion(email) {
+        const { data, error } = await supabaseClient.rpc('cancelar_invitacion_admin', { p_email: email });
+        if (!error) { this.adminMsg = data; await this.cargarAdministradoras(); }
+      },
+    };
+  }
+</script>
+</body>
+</html>

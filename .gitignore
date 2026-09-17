@@ -1,0 +1,8 @@
+# Solo se publica lo estrictamente necesario para el sitio.
+# El SQL y otras notas quedan locales, no se suben al repo público.
+*
+!.gitignore
+!index.html
+!ESCUDO.jpeg
+!privacidad.html
+!terminos.html
