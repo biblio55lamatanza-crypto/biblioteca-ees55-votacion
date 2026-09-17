@@ -238,7 +238,7 @@
                 <p class="font-extrabold" x-text="p.nombre"></p>
                 <p class="text-xs" style="color: var(--ink-soft);" x-text="(p.propuesto_por || 'Sin autoría') + ' · ' + p.votos_total + ' votos' + (p.finalista ? ' · finalista' : '')"></p>
               </div>
-              <a x-show="p.explicacion_pdf_url" :href="p.explicacion_pdf_url" target="_blank" rel="noopener" class="text-xs font-bold" style="color: var(--verde);">PDF</a>
+              <a x-show="p.explicacion_pdf_url" :href="p.explicacion_pdf_url" target="_blank" rel="noopener" class="text-xs font-bold" style="color: var(--verde);">¿Por qué ese nombre?</a>
               <button class="text-xs font-bold" style="color: var(--azul);" @click="editarPropuesta(p)">Editar</button>
               <button class="text-xs font-bold" style="color: var(--rojo);" @click="borrarPropuesta(p)">Borrar</button>
             </div>
