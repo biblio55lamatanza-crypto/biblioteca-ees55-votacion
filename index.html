@@ -162,11 +162,11 @@
               <span class="chip" style="background: var(--amarillo-light); color: var(--amarillo);">🏆 <span x-text="'#' + p.posicion"></span></span>
               <span class="chip" style="background: var(--azul-light); color: var(--azul);" x-text="p.votos_total + ' voto' + (p.votos_total === 1 ? '' : 's')"></span>
             </div>
-            <img x-show="p.imagen_url" :src="p.imagen_url" class="w-full h-40 object-cover rounded-2xl mb-3">
+            <img x-show="p.imagen_url" :src="p.imagen_url" class="w-full h-28 object-cover rounded-2xl mb-3">
             <h3 class="display font-extrabold text-xl mb-1" x-text="p.nombre"></h3>
             <p class="text-xs font-bold mb-2" style="color: var(--ink-soft);" x-show="p.propuesto_por" x-text="'Propuesto por: ' + p.propuesto_por"></p>
             <div x-show="p.explicacion_pdf_url" class="mb-4">
-              <iframe :src="p.explicacion_pdf_url" class="w-full rounded-2xl mb-1" style="height: 280px; border: 2px solid var(--gray-light);"></iframe>
+              <iframe :src="p.explicacion_pdf_url" class="w-full rounded-2xl mb-1" style="height: 200px; border: 2px solid var(--gray-light);"></iframe>
               <a :href="p.explicacion_pdf_url" target="_blank" rel="noopener" class="text-xs font-bold" style="color: var(--azul);">Abrir el PDF en una pestaña nueva ↗</a>
             </div>
             <button class="btn-fill w-full"
