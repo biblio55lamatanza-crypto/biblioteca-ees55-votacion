@@ -517,7 +517,8 @@
       },
 
       yaVoto() {
-        return !!this.misVotosLocal[this.config.ronda_actual];
+        const id = this.misVotosLocal[this.config.ronda_actual];
+        return !!id && this.propuestas.some((p) => p.propuesta_id === id);
       },
 
       // Si la URL trae ?propuesta=ID (enlace compartido), hace scroll hasta esa
