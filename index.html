@@ -278,6 +278,7 @@
       <!-- Listado de propuestas -->
       <div class="card p-6 mb-6">
         <h3 class="display font-extrabold text-xl mb-4">📋 Propuestas cargadas</h3>
+        <p x-show="errorListado" x-text="errorListado" class="text-sm font-bold p-3 rounded-xl mb-3" style="background: var(--rojo-light); color: var(--rojo);"></p>
         <div class="space-y-3">
           <template x-for="p in propuestas" :key="p.id">
             <div class="p-4 rounded-2xl flex items-center gap-3" style="background: var(--gray-light);">
@@ -406,6 +407,7 @@
       editandoId: null,
       guardandoPropuesta: false,
       errorPropuesta: '',
+      errorListado: '',
       cambiandoEstado: false,
       avanzando: false,
       fechaR1: '',
@@ -700,8 +702,15 @@
 
       async borrarPropuesta(p) {
         if (!confirm('¿Borrar la propuesta "' + p.nombre + '"? No se puede deshacer.')) return;
+        this.errorListado = '';
         const { error } = await supabaseClient.from('propuestas').delete().eq('id', p.id);
-        if (!error) await this.cargarAdmin();
+        if (error) {
+          this.errorListado = error.code === '23503'
+            ? 'No se puede borrar "' + p.nombre + '" porque ya tiene votos registrados.'
+            : (error.message || 'No se pudo borrar la propuesta.');
+          return;
+        }
+        await this.cargarAdmin();
       },
 
       async toggleVotacion() {
