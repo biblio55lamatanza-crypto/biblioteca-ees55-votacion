@@ -139,7 +139,7 @@
             <button x-show="!esAdmin" class="text-xs font-bold shrink-0" style="color: var(--ink-soft);" @click="salirVotante()">Salir</button>
           </div>
         </template>
-        <p class="text-xs mt-2" style="color: var(--ink-soft);">Un voto por cuenta de Google en cada ronda. No hace falta confirmar nada más.</p>
+        <p class="text-xs mt-2" style="color: var(--ink-soft);">Un voto por cuenta de Google. No hace falta confirmar nada más.</p>
       </div>
 
       <div class="card p-4 mb-6 flex items-center gap-3" :style="config.votacion_abierta ? 'background: var(--verde-light)' : 'background: var(--rojo-light)'">
@@ -147,9 +147,8 @@
         <div class="flex-1">
           <p class="font-extrabold" x-text="config.votacion_abierta ? 'La votación está abierta' : 'La votación está cerrada por ahora'"></p>
           <p class="text-xs" style="color: var(--ink-soft);">
-            <span x-text="config.ronda_actual === 1 ? 'Ronda 1: todos los nombres propuestos' : 'Ronda final: los 3 nombres más votados'"></span>
-            <template x-if="config.ronda_actual === 1 && config.fecha_limite_ronda1"><span x-text="' · hasta ' + config.fecha_limite_ronda1"></span></template>
-            <template x-if="config.ronda_actual === 2 && config.fecha_limite_ronda2"><span x-text="' · hasta ' + config.fecha_limite_ronda2"></span></template>
+            <span>Elegí tu nombre favorito para la biblioteca</span>
+            <template x-if="config.fecha_limite_ronda1"><span x-text="' · hasta el ' + config.fecha_limite_ronda1"></span></template>
           </p>
         </div>
       </div>
@@ -226,20 +225,14 @@
         <!-- Control de votación -->
         <div class="card p-6">
           <h3 class="display font-extrabold text-xl mb-4">⚙️ Control de la votación</h3>
-          <p class="text-sm mb-1"><b>Ronda actual:</b> <span x-text="config.ronda_actual === 1 ? '1 (todos los nombres)' : '2 (final, top 3)'"></span></p>
           <p class="text-sm mb-4"><b>Estado:</b> <span x-text="config.votacion_abierta ? 'Abierta' : 'Cerrada'"></span></p>
-          <button class="btn-fill w-full mb-3" @click="toggleVotacion()" :disabled="cambiandoEstado">
+          <button class="btn-fill w-full mb-5" @click="toggleVotacion()" :disabled="cambiandoEstado">
             <span x-text="config.votacion_abierta ? 'Cerrar votación' : 'Abrir votación'"></span>
           </button>
-          <button class="btn-ghost w-full mb-5" @click="avanzarRonda2()" :disabled="avanzando || config.ronda_actual === 2">
-            Pasar a ronda 2 (dejar solo el top 3)
-          </button>
 
-          <label>Fecha límite ronda 1 (informativa)</label>
+          <label>Fecha límite de la votación (solo se muestra, no cierra sola)</label>
           <input type="date" x-model="fechaR1" class="mb-3">
-          <label>Fecha límite ronda 2 (informativa)</label>
-          <input type="date" x-model="fechaR2" class="mb-3">
-          <button class="btn-ghost w-full" @click="guardarFechas()">Guardar fechas</button>
+          <button class="btn-ghost w-full" @click="guardarFechas()">Guardar fecha</button>
         </div>
 
         <!-- Cargar propuesta -->
@@ -409,9 +402,7 @@
       errorPropuesta: '',
       errorListado: '',
       cambiandoEstado: false,
-      avanzando: false,
       fechaR1: '',
-      fechaR2: '',
       votantesListado: [],
       cargandoVotantes: false,
 
@@ -575,7 +566,7 @@
         });
         this.votando = null;
         if (error) {
-          this.errorVoto = error.code === '23505' ? 'Ese mail ya votó en esta ronda.' : (error.message || 'No se pudo registrar el voto.');
+          this.errorVoto = error.code === '23505' ? 'Ese mail ya votó.' : (error.message || 'No se pudo registrar el voto.');
           return;
         }
         this.guardarEmailLocal();
@@ -594,7 +585,6 @@
         if (config) {
           this.config = config;
           this.fechaR1 = config.fecha_limite_ronda1 || '';
-          this.fechaR2 = config.fecha_limite_ronda2 || '';
         }
         this.propuestas = props || [];
       },
@@ -721,19 +711,10 @@
         if (!error) await this.cargarAdmin();
       },
 
-      async avanzarRonda2() {
-        if (!confirm('Esto cierra la ronda 1, deja solo el top 3 y reinicia los votos a cero para la ronda final. ¿Confirmás?')) return;
-        this.avanzando = true;
-        const { error } = await supabaseClient.rpc('avanzar_a_ronda2');
-        this.avanzando = false;
-        if (!error) await this.cargarAdmin();
-        else alert(error.message);
-      },
-
       async guardarFechas() {
         const { error } = await supabaseClient.rpc('set_fechas_limite', {
           p_fecha_r1: this.fechaR1 || null,
-          p_fecha_r2: this.fechaR2 || null,
+          p_fecha_r2: null,
         });
         if (!error) await this.cargarAdmin();
       },
