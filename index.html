@@ -179,6 +179,13 @@
             </div>
             <h3 class="display font-extrabold text-2xl mb-1" x-text="p.nombre"></h3>
             <p class="text-xs font-bold mb-4" style="color: var(--ink-soft);" x-show="p.propuesto_por" x-text="'Propuesto por: ' + p.propuesto_por"></p>
+            <div class="flex gap-2 overflow-x-auto mb-4" x-show="(p.imagenes_urls || []).length > 0">
+              <template x-for="url in (p.imagenes_urls || [])" :key="url">
+                <a :href="url" target="_blank" rel="noopener" class="shrink-0">
+                  <img :src="url" loading="lazy" class="w-24 h-24 object-cover rounded-xl">
+                </a>
+              </template>
+            </div>
             <a x-show="p.explicacion_pdf_url" :href="p.explicacion_pdf_url" target="_blank" rel="noopener"
                class="btn-ghost w-full text-sm mb-4 flex items-center justify-center gap-2">📄 ¿Por qué este nombre?</a>
             <div class="flex items-center gap-2">
@@ -243,9 +250,22 @@
           <input type="text" placeholder="Ej: Biblioteca Julio Cortázar" x-model="formPropuesta.nombre" class="mb-3">
           <label>¿Quién lo propone?</label>
           <input type="text" placeholder="Ej: 6to A, Prof. García, Auxiliares" x-model="formPropuesta.propuesto_por" class="mb-3">
-          <label x-text="editandoId && !formPropuesta.pdfArchivo ? 'Explicación en PDF (ya tiene uno cargado; subí otro para reemplazarlo)' : 'Explicación en PDF'"></label>
-          <input type="file" accept="application/pdf" @change="onPdfSeleccionado($event)" class="mb-1">
-          <p class="text-xs mb-4" style="color: var(--ink-soft);">El desarrollo de por qué se propone este nombre, en un PDF (máximo 15 MB). Se muestra como botón para abrir, no se previsualiza.</p>
+          <label x-text="editandoId && formPropuesta.tienePdf && !formPropuesta.pdfArchivo ? 'Explicación en PDF (opcional; ya tiene uno cargado, subí otro para reemplazarlo)' : 'Explicación en PDF (opcional)'"></label>
+          <input type="file" accept="application/pdf" x-ref="inputPdf" @change="onPdfSeleccionado($event)" class="mb-1">
+          <p class="text-xs mb-3" style="color: var(--ink-soft);">El desarrollo de por qué se propone este nombre, en un PDF (máximo 15 MB). Si no hay, la propuesta se sube igual.</p>
+
+          <label>Imágenes (opcional, podés elegir varias)</label>
+          <input type="file" accept="image/*" multiple x-ref="inputImagenes" @change="onImagenesSeleccionadas($event)" class="mb-1">
+          <p class="text-xs mb-2" style="color: var(--ink-soft);" x-show="formPropuesta.imagenesNuevas.length > 0" x-text="formPropuesta.imagenesNuevas.length + ' imagen(es) nueva(s) para subir'"></p>
+          <div class="flex flex-wrap gap-2 mb-4" x-show="formPropuesta.imagenesActuales.length > 0">
+            <template x-for="(url, i) in formPropuesta.imagenesActuales" :key="url">
+              <div class="relative">
+                <img :src="url" class="w-16 h-16 object-cover rounded-xl">
+                <button type="button" @click="quitarImagenActual(i)" title="Quitar esta imagen"
+                        class="absolute -top-2 -right-2 w-6 h-6 rounded-full text-xs font-bold text-white" style="background: var(--rojo);">×</button>
+              </div>
+            </template>
+          </div>
           <div class="flex gap-3">
             <button x-show="editandoId" class="btn-ghost flex-1" @click="cancelarEdicion()">Cancelar</button>
             <button class="btn-fill flex-1" @click="guardarPropuesta()" :disabled="guardandoPropuesta">
@@ -328,6 +348,31 @@
   </footer>
 
 <script>
+  // Redimensiona y comprime una imagen a JPEG en el navegador antes de subirla.
+  function comprimirImagen(file, maxDim, calidad) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const max = maxDim || 1200;
+        if (width > height && width > max) { height = Math.round(height * max / width); width = max; }
+        else if (height > max) { width = Math.round(width * max / height); height = max; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen'))),
+          'image/jpeg',
+          calidad || 0.8
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+      img.src = url;
+    });
+  }
+
   // COMPLETAR antes de publicar: URL y anon key del proyecto de Supabase
   // (Project Settings > API en el dashboard de Supabase).
   const SUPABASE_URL = 'https://hmwrtzralrjwxcwydngs.supabase.co';
@@ -357,7 +402,7 @@
       errorVoto: '',
       propuestaDestacadaId: '',
 
-      formPropuesta: { nombre: '', propuesto_por: '', pdfArchivo: null },
+      formPropuesta: { nombre: '', propuesto_por: '', pdfArchivo: null, tienePdf: false, imagenesNuevas: [], imagenesActuales: [], imagenesOriginales: 0 },
       editandoId: null,
       guardandoPropuesta: false,
       errorPropuesta: '',
@@ -562,14 +607,25 @@
         this.formPropuesta.pdfArchivo = f;
       },
 
+      onImagenesSeleccionadas(e) {
+        const archivos = Array.from(e.target.files || []);
+        if (archivos.some((f) => f.size > 15 * 1024 * 1024)) {
+          this.errorPropuesta = 'Cada imagen puede pesar hasta 15 MB.';
+          e.target.value = '';
+          this.formPropuesta.imagenesNuevas = [];
+          return;
+        }
+        this.formPropuesta.imagenesNuevas = archivos;
+      },
+
+      quitarImagenActual(i) {
+        this.formPropuesta.imagenesActuales.splice(i, 1);
+      },
+
       async guardarPropuesta() {
         this.errorPropuesta = '';
         if (!this.formPropuesta.nombre) {
           this.errorPropuesta = 'Completá al menos el nombre propuesto.';
-          return;
-        }
-        if (!this.editandoId && !this.formPropuesta.pdfArchivo) {
-          this.errorPropuesta = 'Subí el PDF con la explicación del nombre.';
           return;
         }
         this.guardandoPropuesta = true;
@@ -578,6 +634,20 @@
             nombre: this.formPropuesta.nombre,
             propuesto_por: this.formPropuesta.propuesto_por || null,
           };
+
+          const f = this.formPropuesta;
+          const cambioImagenes = f.imagenesNuevas.length > 0 || f.imagenesActuales.length !== f.imagenesOriginales;
+          if (cambioImagenes) {
+            const urls = [...f.imagenesActuales];
+            for (const archivo of f.imagenesNuevas) {
+              const blob = await comprimirImagen(archivo, 1200, 0.8);
+              const path = crypto.randomUUID() + '.jpg';
+              const { error: upErr } = await supabaseClient.storage.from('propuestas-imagenes').upload(path, blob, { contentType: 'image/jpeg' });
+              if (upErr) throw upErr;
+              urls.push(supabaseClient.storage.from('propuestas-imagenes').getPublicUrl(path).data.publicUrl);
+            }
+            payload.imagenes_urls = urls;
+          }
 
           if (this.formPropuesta.pdfArchivo) {
             const path = crypto.randomUUID() + '.pdf';
@@ -604,12 +674,28 @@
 
       editarPropuesta(p) {
         this.editandoId = p.id;
-        this.formPropuesta = { nombre: p.nombre, propuesto_por: p.propuesto_por || '', pdfArchivo: null };
+        const imagenes = p.imagenes_urls || [];
+        this.formPropuesta = {
+          nombre: p.nombre,
+          propuesto_por: p.propuesto_por || '',
+          pdfArchivo: null,
+          tienePdf: !!p.explicacion_pdf_url,
+          imagenesNuevas: [],
+          imagenesActuales: [...imagenes],
+          imagenesOriginales: imagenes.length,
+        };
+        this.limpiarInputsArchivo();
       },
 
       cancelarEdicion() {
         this.editandoId = null;
-        this.formPropuesta = { nombre: '', propuesto_por: '', pdfArchivo: null };
+        this.formPropuesta = { nombre: '', propuesto_por: '', pdfArchivo: null, tienePdf: false, imagenesNuevas: [], imagenesActuales: [], imagenesOriginales: 0 };
+        this.limpiarInputsArchivo();
+      },
+
+      limpiarInputsArchivo() {
+        if (this.$refs.inputPdf) this.$refs.inputPdf.value = '';
+        if (this.$refs.inputImagenes) this.$refs.inputImagenes.value = '';
       },
 
       async borrarPropuesta(p) {
