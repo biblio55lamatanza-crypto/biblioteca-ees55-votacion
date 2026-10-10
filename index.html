@@ -309,6 +309,7 @@
           </div>
         </div>
         <p class="text-sm" style="color: var(--ink-soft);" x-text="votantesListado.length + ' voto(s) registrado(s)'"></p>
+        <p x-show="errorVotantes" x-text="errorVotantes" class="text-sm font-bold mt-2" style="color: var(--rojo);"></p>
       </div>
 
       <!-- Administradoras -->
@@ -413,6 +414,7 @@
       fechaR1: '',
       votantesListado: [],
       cargandoVotantes: false,
+      errorVotantes: '',
 
       miId: '',
       administradoras: [],
@@ -734,9 +736,22 @@
 
       async cargarVotantes() {
         this.cargandoVotantes = true;
-        const { data, error } = await supabaseClient.rpc('listado_votantes');
+        this.errorVotantes = '';
+        // Supabase entrega como máximo 1000 filas por pedido: se piden de a páginas.
+        const pagina = 1000;
+        const todos = [];
+        for (let desde = 0; ; desde += pagina) {
+          const { data, error } = await supabaseClient.rpc('listado_votantes').range(desde, desde + pagina - 1);
+          if (error) {
+            this.errorVotantes = error.message || 'No se pudo traer el listado.';
+            this.cargandoVotantes = false;
+            return;
+          }
+          todos.push(...(data || []));
+          if (!data || data.length < pagina) break;
+        }
+        this.votantesListado = todos;
         this.cargandoVotantes = false;
-        if (!error) this.votantesListado = data || [];
       },
 
       descargarCSV() {
