@@ -235,13 +235,18 @@
         <div class="card p-6">
           <h3 class="display font-extrabold text-xl mb-4">⚙️ Control de la votación</h3>
           <p class="text-sm mb-4"><b>Estado:</b> <span x-text="config.votacion_abierta ? 'Abierta' : 'Cerrada'"></span></p>
-          <button class="btn-fill w-full mb-5" @click="toggleVotacion()" :disabled="cambiandoEstado">
-            <span x-text="config.votacion_abierta ? 'Cerrar votación' : 'Abrir votación'"></span>
-          </button>
+          <template x-if="esPrincipal">
+            <div>
+              <button class="btn-fill w-full mb-5" @click="toggleVotacion()" :disabled="cambiandoEstado">
+                <span x-text="config.votacion_abierta ? 'Cerrar votación' : 'Abrir votación'"></span>
+              </button>
 
-          <label>Fecha límite de la votación (solo se muestra, no cierra sola)</label>
-          <input type="date" x-model="fechaR1" class="mb-3">
-          <button class="btn-ghost w-full" @click="guardarFechas()">Guardar fecha</button>
+              <label>Fecha límite de la votación (solo se muestra, no cierra sola)</label>
+              <input type="date" x-model="fechaR1" class="mb-3">
+              <button class="btn-ghost w-full" @click="guardarFechas()">Guardar fecha</button>
+            </div>
+          </template>
+          <p x-show="!esPrincipal" class="text-sm p-3 rounded-xl" style="background: var(--amarillo-light); color: var(--ink-soft);">Solo la administradora principal puede abrir o cerrar la votación y cambiar la fecha.</p>
         </div>
 
         <!-- Cargar propuesta -->
@@ -389,6 +394,7 @@
       cargando: true,
       session: null,
       esAdmin: false,
+      esPrincipal: false,
 
       emailInput: '',
       enlaceEnviado: false,
@@ -478,6 +484,12 @@
           await supabaseClient.rpc('activar_invitacion_admin');
           const { data } = await supabaseClient.rpc('is_admin');
           this.esAdmin = data === true;
+          if (this.esAdmin) {
+            // Si la función todavía no existe (migración sin correr), se muestran los
+            // botones igual; la base es la que decide de verdad.
+            const { data: principal, error: errPrincipal } = await supabaseClient.rpc('is_admin_principal');
+            this.esPrincipal = errPrincipal ? true : principal === true;
+          }
           // Un enlace compartido de una propuesta tiene prioridad, incluso si
           // quien entra es administradora: la lleva a esa propuesta, no al panel.
           if (this.esAdmin && !this.tieneEnlaceCompartido()) {
@@ -487,6 +499,7 @@
           }
         } else {
           this.esAdmin = false;
+          this.esPrincipal = false;
           this.mailVerificado = false;
         }
         this.cargandoGoogle = false;
@@ -723,7 +736,8 @@
         const fn = this.config.votacion_abierta ? 'cerrar_votacion' : 'abrir_votacion';
         const { error } = await supabaseClient.rpc(fn);
         this.cambiandoEstado = false;
-        if (!error) await this.cargarAdmin();
+        if (error) { alert(error.message); return; }
+        await this.cargarAdmin();
       },
 
       async guardarFechas() {
